@@ -3,19 +3,22 @@ const { utils } = require("ethers");
 const fs = require("fs");
 const chalk = require("chalk");
 
-require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-waffle");
 require("@tenderly/hardhat-tenderly");
-require("@nomicfoundation/hardhat-toolbox");
+
 require("hardhat-deploy");
+require("hardhat-gas-reporter");
+require("hardhat-abi-exporter");
+
+require("@nomiclabs/hardhat-ethers");
+require("@nomiclabs/hardhat-etherscan");
 
 const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 
 /*
       📡 This is where you configure your deploy configuration for 🏗 scaffold-eth
 
-      Scaffold-Eth uses `hardhat-deploy` to manage deployments (see the <./deploy> dir); 
-      and learn more at <https://www.npmjs.com/package/hardhat-deploy>.
-      Also there is deprecated <./scripts/deploy.js> left for reference.
+      check out `packages/scripts/deploy.js` to customize your deployment
 
       out of the box it will auto deploy anything in the `contracts` folder and named *.sol
       plus it will use *.args for constructor args
@@ -25,6 +28,10 @@ const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 // Select the network you want to deploy to here:
 //
 const defaultNetwork = "localhost";
+// const defaultNetwork = "polygon";
+// const defaultNetwork = "goerli";
+// const defaultNetwork = "optimism";
+// const defaultNetwork = "rinkeby";
 
 function mnemonic() {
   try {
@@ -41,6 +48,7 @@ function mnemonic() {
 
 module.exports = {
   defaultNetwork,
+
   /**
    * gas reporter configuration that let's you know
    * an estimate of gas for contract deployments and function calls
@@ -49,7 +57,6 @@ module.exports = {
   gasReporter: {
     currency: "USD",
     coinmarketcap: process.env.COINMARKETCAP || null,
-    enabled: true,
   },
 
   // if you want to deploy to a testnet, mainnet, or xdai, you will need to configure:
@@ -61,12 +68,26 @@ module.exports = {
 
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545/",
+      url: "http://localhost:8545",
       /*
         notice no mnemonic here? it will just use account 0 of the hardhat node to deploy
         (you can put in a mnemonic here to set the deployer locally)
 
       */
+    },
+    rinkeby: {
+      url: "https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", // <---- YOUR INFURA ID! (or it won't work)
+      //    url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXXXXX/eth/rinkeby", // <---- YOUR MORALIS ID! (not limited to infura)
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
+    kovan: {
+      url: "https://kovan.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", // <---- YOUR INFURA ID! (or it won't work)
+      //    url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXXXXX/eth/kovan", // <---- YOUR MORALIS ID! (not limited to infura)
+      accounts: {
+        mnemonic: mnemonic(),
+      },
     },
     mainnet: {
       url: "https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", // <---- YOUR INFURA ID! (or it won't work)
@@ -75,8 +96,9 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
-    buidlguidl: {
-      url: "https://chain.buidlguidl.com:8545", //<---- YOUR INFURA ID! (or it won't work)
+    ropsten: {
+      url: "https://ropsten.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", // <---- YOUR INFURA ID! (or it won't work)
+      //      url: "https://speedy-nodes-nyc.moralis.io/XXXXXXXXXXXXXXXXXXXXXXXXX/eth/ropsten",// <---- YOUR MORALIS ID! (not limited to infura)
       accounts: {
         mnemonic: mnemonic(),
       },
@@ -88,16 +110,8 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
-    gnosis: {
-      url: 'https://rpc.gnosischain.com/',
-      gasPrice: 1000000000,
-      accounts: {
-        mnemonic: mnemonic(),
-      },
-    },
-    chiado: {
-      url: 'https://rpc.chiadochain.net',
-      gasPrice: 1000000000,
+    xdai: {
+      url: "https://rpc.xdaichain.com/",
       accounts: {
         mnemonic: mnemonic(),
       },
@@ -145,13 +159,13 @@ module.exports = {
         l1: "mainnet",
       },
     },
-    goerliOptimism: {
-      url: "https://goerli.optimism.io/",
+    kovanOptimism: {
+      url: "https://kovan.optimism.io",
       accounts: {
         mnemonic: mnemonic(),
       },
       companionNetworks: {
-        l1: "goerli",
+        l1: "kovan",
       },
     },
     localOptimism: {
@@ -255,9 +269,9 @@ module.exports = {
         mnemonic: mnemonic(),
       },
     },
-    goerliArbitrum: {
-      url: "https://goerli-rollup.arbitrum.io/rpc/",
-      chainId: 421613,
+    rinkebyArbitrum: {
+      url: "https://rinkeby.arbitrum.io/rpc",
+      chainId: 421611,
       accounts: {
         mnemonic: mnemonic(),
       },
