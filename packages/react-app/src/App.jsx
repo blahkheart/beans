@@ -33,8 +33,18 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { getRPCPollTime, Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC, useGasPrice } from "./hooks";
+import { injected } from "web3modal";
 
 const { ethers } = require("ethers");
+const { RelayProvider } = require("@opengsn/provider");
+const paymasterAddress = "0x35E9E301b33bA713fc773d12cA4793BD92C17EDD";
+const gsnConfig = {
+  paymasterAddress,
+  loggerConfiguration: {
+    logLevel: "debug",
+  },
+};
+
 /*
     Welcome to 🏗 scaffold-eth !
 
@@ -55,7 +65,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const initialNetwork = NETWORKS.buidlguidl; // <------- select your target frontend network (localhost, goerli, xdai, mainnet)
+const initialNetwork = NETWORKS.mumbai; // <------- select your target frontend network (localhost, goerli, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -112,6 +122,8 @@ function App(props) {
       window.location.reload();
     }, 1);
   };
+  const [gsnProvider, setGsnProvider] = useState();
+  const [gsnWrappedInjectedProvider, setGsnWrappedInjectedProvider] = useState();
 
   /* 💵 This hook will get the price of ETH from 🦄 Uniswap: */
   const price = useExchangeEthPrice(targetNetwork, mainnetProvider, mainnetProviderPollingTime);
@@ -119,8 +131,46 @@ function App(props) {
   /* 🔥 This hook will get the price of Gas from ⛽️ EtherGasStation */
   const gasPrice = useGasPrice(targetNetwork, "FastGasPrice", localProviderPollingTime);
   // Use your injected provider from 🦊 Metamask or if you don't have it then instantly generate a 🔥 burner wallet.
-  const userProviderAndSigner = useUserProviderAndSigner(injectedProvider, localProvider, USE_BURNER_WALLET);
+  // const userProviderAndSigner = useUserProviderAndSigner(injectedProvider, localProvider, USE_BURNER_WALLET);
+  const userProviderAndSigner = useUserProviderAndSigner(gsnWrappedInjectedProvider, gsnProvider, USE_BURNER_WALLET);
   const userSigner = userProviderAndSigner.signer;
+
+  //////////////SET GSN PROVIDERS////////////////
+  useEffect(() => {
+    async function readyGsnProvider() {
+      let _provider;
+      injectedProvider ? (_provider = injectedProvider) : (_provider = localProvider);
+      try {
+        const _gsnProvider = await RelayProvider.newProvider({
+          provider: _provider,
+          config: gsnConfig,
+        }).init();
+        const ethersProvider = new ethers.providers.Web3Provider(_gsnProvider);
+        setGsnProvider(ethersProvider);
+      } catch (e) {
+        console.log("ERR_GSN_PROVIDER::", e);
+      }
+    }
+    readyGsnProvider();
+  }, [injectedProvider, localProvider]);
+
+  useEffect(() => {
+    async function readyWrappedInjectedProvider() {
+      if (injectedProvider) {
+        try {
+          const _gsnProvider = await RelayProvider.newProvider({
+            provider: injectedProvider,
+            config: gsnConfig,
+          }).init();
+          const ethersProvider = new ethers.providers.Web3Provider(_gsnProvider);
+          setGsnWrappedInjectedProvider(ethersProvider);
+        } catch (e) {
+          console.log("ERR_GSN_INJECTED_PROVIDER::", e);
+        }
+      }
+    }
+    readyWrappedInjectedProvider();
+  }, [injectedProvider]);
 
   useEffect(() => {
     async function getAddress() {
@@ -153,7 +203,8 @@ function App(props) {
   const contractConfig = { deployedContracts: deployedContracts || {}, externalContracts: externalContracts || {} };
 
   // Load in your local 📝 contract and read a value from it:
-  const readContracts = useContractLoader(localProvider, contractConfig);
+  // const readContracts = useContractLoader(localProvider, contractConfig);
+  const readContracts = useContractLoader(gsnProvider, contractConfig);
 
   // If you want to make 🔐 write transactions to your contracts, use the userSigner:
   const writeContracts = useContractLoader(userSigner, contractConfig, localChainId);
@@ -176,9 +227,6 @@ function App(props) {
     ["0x34aA3F359A9D614239015126635CE7732c18fDF3"],
     mainnetProviderPollingTime,
   );
-
-  // keep track of a variable from the contract in the local React state:
-  const purpose = useContractReader(readContracts, "YourContract", "purpose", [], localProviderPollingTime);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -265,6 +313,119 @@ function App(props) {
 
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
+  console.log("prov-writecontracts", writeContracts);
+  console.log("prov-address", address);
+
+  const feddyTokenAbi = [
+    {
+      inputs: [
+        {
+          internalType: "address",
+          name: "_spender",
+          type: "address",
+        },
+        {
+          internalType: "uint256",
+          name: "_value",
+          type: "uint256",
+        },
+      ],
+      name: "approve",
+      outputs: [
+        {
+          internalType: "bool",
+          name: "",
+          type: "bool",
+        },
+      ],
+      stateMutability: "nonpayable",
+      type: "function",
+    },
+    {
+      inputs: [
+        {
+          internalType: "address",
+          name: "_owner",
+          type: "address",
+        },
+        {
+          internalType: "address",
+          name: "_spender",
+          type: "address",
+        },
+      ],
+      name: "allowance",
+      outputs: [
+        {
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
+        },
+      ],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [
+        {
+          internalType: "address",
+          name: "_owner",
+          type: "address",
+        },
+      ],
+      name: "balanceOf",
+      outputs: [
+        {
+          internalType: "uint256",
+          name: "",
+          type: "uint256",
+        },
+      ],
+      stateMutability: "view",
+      type: "function",
+    },
+  ];
+
+  const feddyTokenContract = new ethers.Contract(
+    "0xB6A08e14F24aaDBAd6C5be83F5f84c03503E28C7",
+    feddyTokenAbi,
+    userSigner,
+  );
+
+  const approveTokens = async () => {
+    try {
+      const txn = await tx(
+        feddyTokenContract.approve(writeContracts.EcoWallet.address, ethers.utils.parseEther("10000")),
+      );
+      console.log("APPROVAL", txn);
+    } catch (e) {
+      console.log("ERR_APPROVE", e);
+    }
+  };
+
+  const tokenAllowance = async () => {
+    try {
+      const txn = await tx(feddyTokenContract.allowance(address, writeContracts.EcoWallet.address));
+      console.log("ALLOWANCE", ethers.utils.formatEther(await txn));
+    } catch (e) {
+      console.log("ERR_ALLOWANCE", e);
+    }
+  };
+
+  const sendTokens = async () => {
+    try {
+      const txn = await tx(
+        writeContracts.EcoWallet.transferFrom(
+          "0xdb26669F95178d5676d661c071705E11d245c3F0",
+          ethers.utils.parseEther("0.1"),
+        ),
+      );
+      console.log("TOKEN TXN", txn);
+    } catch (e) {
+      console.log("ERR_SENDING_TOKENS", e);
+    }
+  };
+
   return (
     <div className="App">
       {/* ✏️ Edit the header and change the title to your project name */}
@@ -337,7 +498,7 @@ function App(props) {
       <Switch>
         <Route exact path="/">
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
-          <Home
+          {/* <Home
             tx={tx}
             localProvider={localProvider}
             selectedChainId={selectedChainId}
@@ -351,7 +512,12 @@ function App(props) {
             price={price}
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
-          />
+          /> */}
+          <Button onClick={sendTokens}>Send Tokens</Button>
+          <br />
+          <Button onClick={approveTokens}>Approve Tokens</Button>
+          <br />
+          <Button onClick={tokenAllowance}>Token Allowance</Button>
         </Route>
         <Route exact path="/:address">
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}

@@ -12,21 +12,36 @@ contract EcoWallet is ERC2771Recipient {
         token = _token;
         _setTrustedForwarder(_forwarder);
     }
-    modifier hasBalance (uint256 _amount) {
-        require(token.balanceOf(_msgSender()) >= _amount, "Insufficient balance");
+
+    modifier hasBalance(uint256 _amount) {
+        require(
+            token.balanceOf(_msgSender()) >= _amount,
+            "Insufficient balance"
+        );
         _;
     }
-    function transferFrom(address _to, uint256 _amount) external hasBalance(_amount) {
-        token.approve(address(this), _amount);
+
+    function transferFrom(
+        address _to,
+        uint256 _amount
+    ) external hasBalance(_amount) {
         token.transferFrom(_msgSender(), _to, _amount);
     }
 
-    function transfer(address _to, uint256 _amount) external hasBalance(_amount) {
-        token.transfer(_to, _amount);
+    function approve(
+        address _contractAddress,
+        uint256 _amount
+    ) external returns (bool _approved) {
+        _approved = token.approve(_contractAddress, _amount);
+    }
+
+    function getAllowance(
+        address _owner
+    ) external view returns (uint256 _allowance) {
+        _allowance = token.allowance(_owner, address(this));
     }
 
     function transferEther(address payable _to) public payable {
         _to.transfer(msg.value);
     }
-
 }
